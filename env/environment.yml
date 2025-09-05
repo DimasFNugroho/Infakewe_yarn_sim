@@ -1,0 +1,13 @@
+name: chrono
+channels:
+  - projectchrono
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy
+  - pip
+  # optional but handy
+  - matplotlib
+  - pandas
+  # (no pythonocc-core, no gnuplot, no irrlicht needed here)
