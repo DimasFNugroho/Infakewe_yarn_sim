@@ -1,0 +1,69 @@
+{
+  // =============================
+  // Simulation type
+  // =============================
+  "system": {
+    "type": "NSC", // "NSC" or "SMC"
+    "time_step": 0.005, // [s] Integration time step, typical range: 1e-4 .. 1e-2
+    "t_end": 5.0 // [s] End time of simulation
+  },
+
+  // =============================
+  // Global environment
+  // =============================
+  "environment": {
+    "gravity": [0.0, -9.81, 0.0] // [m/s^2] gravity vector
+  },
+
+  // =============================
+  // Plane (ground) properties
+  // =============================
+  "plane": {
+    "size": [2.0, 0.1, 2.0], // [m] box half-sizes (x,y,z)
+    "fixed": true, // boolean: true = immovable floor
+    "density": 1000.0 // [kg/m^3] only relevant if not fixed
+  },
+
+  // =============================
+  // Box (falling object) properties
+  // =============================
+  "box": {
+    "size": [0.1, 0.1, 0.1], // [m] half-sizes of the box
+    "density": 500.0, // [kg/m^3] material density
+    "initial_pos": [0.0, 0.5, 0.0], // [m] starting position (x,y,z)
+    "initial_vel": [0.0, 0.0, 0.0] // [m/s] initial velocity (x,y,z)
+  },
+
+  // =============================
+  // Contact material properties
+  // =============================
+  "material": {
+    // Common to NSC & SMC
+    "friction": 0.4, // [0..1+] Coulomb friction coefficient
+    "restitution": 0.1, // [0..1] Bounciness (0 = inelastic, 1 = perfectly elastic)
+
+    // Extra for SMC only (ignored in NSC)
+    "young_modulus": 2.0e7, // [Pa] Stiffness of contact (1e6 soft .. 1e9 very stiff)
+    "poisson_ratio": 0.3, // [0..0.5] Material Poisson ratio
+    "normal_damping": 0.01, // [N·s/m] Damping in normal direction
+    "tangential_damping": 0.005, // [N·s/m] Damping in tangential direction
+    "rolling_friction": 0.0 // [0..0.1] Rolling resistance coefficient
+  },
+
+  // =============================
+  // Output options
+  // =============================
+  "output": {
+    "csv_file": "outputs/trajectory.csv", // path to CSV file
+    "plot_file": "outputs/trajectory.png" // path to PNG plot
+  },
+
+  // =============================
+  // Surface Plane settings
+  // =============================
+  "incline": {
+    "mode": "geom",      // "flat" | "geom" (rotate plane) | "gravity" (tilt g)
+    "theta_deg": 15.0    // degrees; set 0 for horizontal
+  }
+
+}
