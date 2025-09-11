@@ -28,7 +28,10 @@ import pychrono as chrono
 import pychrono.irrlicht as chronoirr
 
 
-def set_color(vshape, rgb):
+# -------------------- small helpers --------------------
+
+def colorize(vshape, rgb):
+    """Attach a ChVisualMaterial (RGB) to a visual shape (Chrono 8.x-safe)."""
     mat = chrono.ChVisualMaterial()
     mat.SetDiffuseColor(chrono.ChColor(*rgb))
     if hasattr(vshape, "GetMaterials"):
@@ -36,6 +39,47 @@ def set_color(vshape, rgb):
     elif hasattr(vshape, "material_list"):
         vshape.material_list.push_back(mat)
 
+
+def make_const_function(val: float):
+    """Return a Chrono constant function, tolerant to binding differences."""
+    try:
+        return chrono.ChFunction_Const(float(val))
+    except TypeError:
+        f = chrono.ChFunction_Const()
+        if hasattr(f, "Set_yconst"):
+            f.Set_yconst(float(val))
+        elif hasattr(f, "SetConstant"):
+            f.SetConstant(float(val))
+        return f
+
+
+def make_sine_function(amplitude: float, freq_hz: float, phase: float = 0.0):
+    """
+    Return a Chrono sine function with amplitude and frequency (Hz).
+    Handles 8.x name differences (SetAmp/SetAmplitude, SetFreq/SetFrequency).
+    """
+    f = chrono.ChFunction_Sine()
+    if hasattr(f, "SetAmp"):
+        f.SetAmp(float(amplitude))
+    elif hasattr(f, "SetAmplitude"):
+        f.SetAmplitude(float(amplitude))
+    if hasattr(f, "SetFreq"):
+        f.SetFreq(float(freq_hz))
+    elif hasattr(f, "SetFrequency"):
+        f.SetFrequency(float(freq_hz))
+    if hasattr(f, "SetPhase"):
+        f.SetPhase(float(phase))
+    return f
+
+
+def set_min_bounce_zero_if_supported(ch_material):
+    """Zero min-bounce threshold if present (not critical here, but harmless)."""
+    for name in ("SetMinBounceSpeed", "SetMinBounceVelocity"):
+        if hasattr(ch_material, name):
+            getattr(ch_material, name)(0.0)
+
+
+# -------------------- system & simple bodies --------------------
 
 def make_system():
     sys = chrono.ChSystemNSC()
