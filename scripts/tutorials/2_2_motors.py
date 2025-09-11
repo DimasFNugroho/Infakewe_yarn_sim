@@ -1,26 +1,40 @@
 """
-links_02_motors_viz.py (Chrono 8.x safe, Irrlicht)
-==================================================
+2_2_motors_viz.py (Chrono 8.x safe, Irrlicht)
+=============================================
 
-Level 2.1 — Links & joints: motors (visual)
+Level 2.2 — Motors
 
-What this shows
----------------
-Three short bars, each hinged at its left end:
-  - Left: passive revolute (no motor) → swings under gravity.
-  - Middle: speed motor (ChLinkMotorRotationSpeed) → angle follows commanded speed.
-  - Right: torque motor (ChLinkMotorRotationTorque) → constant torque; angle accelerates dynamically.
+What you will see
+-----------------
+One window with four rigs (left -> right):
+  1) Rotation Speed Motor (constant)  — bar spins steadily about Z.
+  2) Rotation Speed Motor (sine)      — bar oscillates (ω(t) = A*sin(2πft + φ)).
+  3) Linear  Speed Motor (constant)   — block slides along +X at constant speed.
+  4) Linear  Speed Motor (sine)       — block slides back & forth (v(t) = A*sin(2πft + φ)).
 
-Robust choices
---------------
-- Manual bodies & visuals, collisions off (we focus on joints).
-- Bullet collision system forced, but unused here.
-- Colors via ChVisualMaterial; Chrono 8.x–safe API usage.
+Key ideas
+---------
+- *Motors* add **actuation** on a **single relative DOF** defined by the motor's frame:
+  - `ChLinkMotorRotationSpeed` drives **angular speed** about the motor frame **Z** axis.
+  - `ChLinkMotorLinearSpeed`   drives **linear speed** along the motor frame **X** axis.
+- Motion profiles are fed with `ChFunction_*`:
+  - `ChFunction_Const` for constant values.
+  - `ChFunction_Sine`  for sinusoidal variation.
+
+Robustness notes (PyChrono 8.x, Windows)
+----------------------------------------
+- Uses manual bodies (no ChBodyEasy* pitfalls) and collisions OFF (we focus on joints).
+- Forces Bullet collision system (even if unused) for consistency.
+- Colors via `ChVisualMaterial`; no deprecated assets; no iteration over SWIG containers.
+
+Controls
+--------
+Left-drag: rotate | Right-drag: pan | Wheel: zoom | ESC/close window: quit
 
 Run
 ---
     conda activate chrono
-    python -u scripts/tutorials/level_2_1_links_and_joints/links_02_motors_viz.py
+    python -u scripts/tutorials/level_2_2_motors/2_2_motors_viz.py
 """
 
 import math
