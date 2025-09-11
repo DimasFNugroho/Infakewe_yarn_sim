@@ -137,133 +137,63 @@ def make_bar(sys, length=0.4, thickness=0.04, density=500.0, color=(0.7, 0.7, 0.
 
     vb = chrono.ChBoxShape()
     vb.GetBoxGeometry().Size = chrono.ChVectorD(hx, hy, hz)
-    colorize(vb, color)
+    set_color(vb, color)
     b.AddVisualShape(vb)
 
     sys.Add(b)
     return b
 
-
-def make_block(sys, size=(0.14, 0.08, 0.08), density=500.0, color=(0.9, 0.8, 0.2)):
-    sx, sy, sz = size
-    hx, hy, hz = sx * 0.5, sy * 0.5, sz * 0.5
-
-    volume = sx * sy * sz
-    mass = max(1e-6, density * volume)
-    Ix = (1.0 / 12.0) * mass * (sy * sy + sz * sz)
-    Iy = (1.0 / 12.0) * mass * (sx * sx + sz * sz)
-    Iz = (1.0 / 12.0) * mass * (sx * sx + sy * sy)
-
-    b = chrono.ChBody()
-    b.SetMass(mass)
-    b.SetInertiaXX(chrono.ChVectorD(Ix, Iy, Iz))
-    b.SetCollide(False)
-
-    vb = chrono.ChBoxShape()
-    vb.GetBoxGeometry().Size = chrono.ChVectorD(hx, hy, hz)
-    colorize(vb, color)
-    b.AddVisualShape(vb)
-
-    sys.Add(b)
-    return b
-
-
-# -------------------- placement helpers --------------------
 
 def place_bar_with_left_end_at(bar, pivot, length, angle_rad):
-    """Put the bar so its left end is at 'pivot' and it makes 'angle_rad' about +Z in the XY plane."""
     q = chrono.Q_from_AngAxis(angle_rad, chrono.ChVectorD(0, 0, 1))
     R = chrono.ChMatrix33D(q)
-    com_local = chrono.ChVectorD(length * 0.5, 0, 0)  # from left end to COM (local)
+    com_local = chrono.ChVectorD(length * 0.5, 0, 0)  # COM half length from left end
     bar.SetPos(pivot + R * com_local)
     bar.SetRot(q)
 
-
-# -------------------- build scene --------------------
 
 def main():
     sys = make_system()
     ground = make_ground(sys)
 
-    # Layout X positions (left -> right)
-    x_rot_const  = -1.6
-    x_rot_sine   = -0.5
-    x_lin_const  = +0.6
-    x_lin_sine   = +1.7
-    y0 = 0.0
+    L = 0.4
+    # left/mid/right pivots
+    pivL = chrono.ChVectorD(-0.7, 0.0, 0.0)
+    pivM = chrono.ChVectorD( 0.0, 0.0, 0.0)
+    pivR = chrono.ChVectorD(+0.7, 0.0, 0.0)
 
-    # ---------- (1) Rotation speed motor — constant ----------
-    L = 0.40
-    pivot_rc = chrono.ChVectorD(x_rot_const, y0, 0.0)
-    bar_rc = make_bar(sys, length=L, color=(0.2, 0.6, 0.9))
-    place_bar_with_left_end_at(bar_rc, pivot_rc, L, angle_rad=0.0)
+    # A) Passive revolute (blue), start at 45 deg
+    barA = make_bar(sys, length=L, color=(0.2, 0.6, 0.9))
+    place_bar_with_left_end_at(barA, pivL, L, angle_rad=math.radians(45))
+    hingeA = chrono.ChLinkLockRevolute()
+    hingeA.Initialize(barA, ground, chrono.ChCoordsysD(pivL, chrono.ChQuaternionD(1, 0, 0, 0)))
+    sys.AddLink(hingeA)
 
-    motor_rc = chrono.ChLinkMotorRotationSpeed()
-    # Motor frame: origin at pivot, identity rot -> motor axis is +Z (Chrono convention)
-    motor_rc.Initialize(bar_rc, ground, chrono.ChFrameD(pivot_rc, chrono.QUNIT))
-    motor_rc.SetSpeedFunction(make_const_function(omega:=2.0))  # rad/s
-    sys.AddLink(motor_rc)
+    # B) Speed motor (yellow), start at 0 deg, omega = 2 rad/s
+    barB = make_bar(sys, length=L, color=(0.9, 0.8, 0.2))
+    place_bar_with_left_end_at(barB, pivM, L, angle_rad=0.0)
+    motorB = chrono.ChLinkMotorRotationSpeed()
+    motorB.Initialize(barB, ground, chrono.ChFrameD(pivM, chrono.ChQuaternionD(1, 0, 0, 0)))
+    motorB.SetSpeedFunction(chrono.ChFunction_Const(2.0))
+    sys.AddLink(motorB)
 
-    # ---------- (2) Rotation speed motor — sine ----------
-    pivot_rs = chrono.ChVectorD(x_rot_sine, y0, 0.0)
-    bar_rs = make_bar(sys, length=L, color=(0.9, 0.8, 0.2))
-    place_bar_with_left_end_at(bar_rs, pivot_rs, L, angle_rad=0.0)
+    # C) Torque motor (green), start at 0 deg, tau = 0.05 N·m
+    barC = make_bar(sys, length=L, color=(0.2, 0.9, 0.2))
+    place_bar_with_left_end_at(barC, pivR, L, angle_rad=0.0)
+    motorC = chrono.ChLinkMotorRotationTorque()
+    motorC.Initialize(barC, ground, chrono.ChFrameD(pivR, chrono.ChQuaternionD(1, 0, 0, 0)))
+    motorC.SetTorqueFunction(chrono.ChFunction_Const(0.05))
+    sys.AddLink(motorC)
 
-    motor_rs = chrono.ChLinkMotorRotationSpeed()
-    motor_rs.Initialize(bar_rs, ground, chrono.ChFrameD(pivot_rs, chrono.QUNIT))
-    # ω(t) = A * sin(2π f t + φ)
-    A_w = 3.0       # rad/s amplitude
-    f_w = 0.5       # Hz
-    ph  = 0.0       # rad
-    motor_rs.SetSpeedFunction(make_sine_function(A_w, f_w, ph))
-    sys.AddLink(motor_rs)
-
-    # ---------- (3) Linear speed motor — constant ----------
-    pivot_lc = chrono.ChVectorD(x_lin_const, y0 + 0.20, 0.0)
-    blk_lc = make_block(sys, size=(0.14, 0.08, 0.08), color=(0.2, 0.9, 0.2))
-    blk_lc.SetPos(pivot_lc + chrono.ChVectorD(0.10, 0.0, 0.0))
-    blk_lc.SetRot(chrono.QUNIT)
-
-    motor_lc = chrono.ChLinkMotorLinearSpeed()
-    # Motor frame identity -> translation axis is +X (Chrono convention)
-    motor_lc.Initialize(blk_lc, ground, chrono.ChFrameD(pivot_lc, chrono.QUNIT))
-    motor_lc.SetSpeedFunction(make_const_function(v:=0.4))  # m/s
-    sys.AddLink(motor_lc)
-
-    # visual "rail" for linear guide
-    rail_lc = chrono.ChBoxShape()
-    rail_lc.GetBoxGeometry().Size = chrono.ChVectorD(0.45, 0.005, 0.005)
-    colorize(rail_lc, (0.7, 0.7, 0.7))
-    ground.AddVisualShape(rail_lc, chrono.ChFrameD(pivot_lc + chrono.ChVectorD(0.45, 0, 0)))
-
-    # ---------- (4) Linear speed motor — sine ----------
-    pivot_ls = chrono.ChVectorD(x_lin_sine, y0 + 0.20, 0.0)
-    blk_ls = make_block(sys, size=(0.14, 0.08, 0.08), color=(0.8, 0.3, 0.8))
-    blk_ls.SetPos(pivot_ls + chrono.ChVectorD(0.10, 0.0, 0.0))
-    blk_ls.SetRot(chrono.QUNIT)
-
-    motor_ls = chrono.ChLinkMotorLinearSpeed()
-    motor_ls.Initialize(blk_ls, ground, chrono.ChFrameD(pivot_ls, chrono.QUNIT))
-    # v(t) = A * sin(2π f t + φ)
-    A_v = 0.35      # m/s amplitude
-    f_v = 0.5       # Hz
-    motor_ls.SetSpeedFunction(make_sine_function(A_v, f_v, 0.0))
-    sys.AddLink(motor_ls)
-
-    rail_ls = chrono.ChBoxShape()
-    rail_ls.GetBoxGeometry().Size = chrono.ChVectorD(0.45, 0.005, 0.005)
-    colorize(rail_ls, (0.7, 0.7, 0.7))
-    ground.AddVisualShape(rail_ls, chrono.ChFrameD(pivot_ls + chrono.ChVectorD(0.45, 0, 0)))
-
-    # ---------------- visualization ----------------
+    # Visualization
     vis = chronoirr.ChVisualSystemIrrlicht()
     vis.AttachSystem(sys)
-    vis.SetWindowSize(1280, 760)
-    vis.SetWindowTitle("Level 2.2 — Motors: rotation & linear (const + sine)")
+    vis.SetWindowSize(1100, 720)
+    vis.SetWindowTitle("Links 02 — Motors vs Constraints (Level 2.1)")
     vis.Initialize()
     vis.AddSkyBox()
     vis.AddTypicalLights()
-    vis.AddCamera(chrono.ChVectorD(4.0, 1.4, 3.6), chrono.ChVectorD(0.0, 0.2, 0.0))
+    vis.AddCamera(chrono.ChVectorD(2.2, 1.2, 2.2), chrono.ChVectorD(0, -0.2, 0))
 
     try:
         vis.BindAll()
