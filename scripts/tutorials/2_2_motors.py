@@ -110,16 +110,17 @@ def make_ground(sys):
     g.SetBodyFixed(True)
     g.SetCollide(False)
     sys.Add(g)
-    # reference beam
+
+    # draw a beam for reference
     beam = chrono.ChBoxShape()
-    beam.GetBoxGeometry().Size = chrono.ChVectorD(3.2, 0.01, 0.05)
-    colorize(beam, (0.55, 0.55, 0.55))
+    beam.GetBoxGeometry().Size = chrono.ChVectorD(1.6, 0.01, 0.05)
+    set_color(beam, (0.55, 0.55, 0.55))
     g.AddVisualShape(beam, chrono.ChFrameD(chrono.ChVectorD(0, 0, 0)))
     return g
 
 
-def make_bar(sys, length=0.40, thickness=0.04, density=500.0, color=(0.2, 0.6, 0.9)):
-    # Bar aligned with local +X (length direction)
+def make_bar(sys, length=0.4, thickness=0.04, density=500.0, color=(0.7, 0.7, 0.7)):
+    # aligned along local +X
     sx, sy, sz = length, thickness, thickness
     hx, hy, hz = sx * 0.5, sy * 0.5, sz * 0.5
 
