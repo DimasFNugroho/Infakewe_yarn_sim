@@ -18,22 +18,17 @@ def prefer_bullet(sys):
     except Exception:
         pass
 
-def make_vis(sys, title, width=1280, height=760, enable=True):
-    """Create Irrlicht visual system or return None if unavailable/disabled."""
-    if not enable:
-        return None
+def tune_collision_defaults(envelope=0.003, margin=0.002):
+    """Set global suggested envelope/margin (guards for older builds)."""
     try:
-        import pychrono.irrlicht as irr
-        vis = irr.ChVisualSystemIrrlicht()
-        vis.AttachSystem(sys)
-        vis.SetWindowSize(width, height)
-        vis.SetWindowTitle(title)
-        vis.Initialize()
-        vis.AddSkyBox()
-        vis.AddTypicalLights()
-        vis.AddCamera(chrono.ChVectorD(1.2, 0.7, 1.2), chrono.ChVectorD(0, 0, 0))
-        try: vis.BindAll()
-        except Exception: pass
-        return vis
+        chrono.ChCollisionModel.SetDefaultSuggestedEnvelope(envelope)
+        chrono.ChCollisionModel.SetDefaultSuggestedMargin(margin)
     except Exception:
-        return None
+        pass
+
+def set_single_thread(sys):
+    """Force single-thread stepping to avoid rare OpenMP races in tests."""
+    for name in ("SetNumThreads", "SetNumThreadsParallel"):
+        if hasattr(sys, name):
+            try: getattr(sys, name)(1)
+            except Exception: pass
