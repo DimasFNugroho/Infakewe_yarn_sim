@@ -1,39 +1,72 @@
-name: CI (Chrono cross-platform)
+name: CI (pychrono 8.0.0 / py310)
 
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Set up Miniconda (Python 3.10)
+      # Use classic conda solver to match local behavior (no libmamba).
+      - name: Set up Miniconda (classic)
         uses: conda-incubator/setup-miniconda@v3
         with:
-          # Create & activate from the env file below
-          activate-environment: chrono
-          environment-file: env/environment.base.yml
+          auto-activate-base: true
+          conda-solver: classic
+          remove-profiles: true
+          run-post: true
 
-          # Important: avoid "defaults" and ToS prompts
-          channels: projectchrono,conda-forge
-          conda-remove-defaults: true
-          channel-priority: strict
-
-          auto-update-conda: false
-          conda-solver: libmamba
-
-      - name: Show environment
+      # ---------- Create env from explicit lock files (no solver) ----------
+      - name: Create env on Windows from explicit lock
+        if: runner.os == 'Windows'
+        shell: powershell
         run: |
+          conda create -y -n chrono --file env/explicit-win-64.txt
           conda run -n chrono python -V
           conda run -n chrono conda list
 
-      - name: Run tests
+      - name: Create env on Ubuntu (prefer explicit lock)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          if [ -f env/explicit-linux-64.txt ]; then
+            conda create -y -n chrono --file env/explicit-linux-64.txt
+          elif [ -f env/environment.linux-64.lock.yml ]; then
+            # fallback to a build-pinned lockfile if you exported one
+            conda env create -n chrono -f env/environment.linux-64.lock.yml
+          else
+            # last-resort fallback: recreate from base.yml with classic solver
+            # ensure channels order favors defaults for MKL, then conda-forge
+            conda config --remove-key channels || true
+            conda config --add channels projectchrono/label/release
+            conda config --add channels defaults
+            conda config --add channels conda-forge
+            conda env create -n chrono -f env/environment.base.yml
+          fi
+          conda run -n chrono python -V
+          conda run -n chrono conda list
+
+      # ---------- Install your package and run tests ----------
+      - name: Install package (editable)
+        run: conda run -n chrono pip install -e .
+
+      - name: Sanity import
+        run: conda run -n chrono python - << "PY"
+import chrono, sys
+print("chrono version:", getattr(chrono, "__version__", "unknown"))
+print("python:", sys.version)
+PY
+
+      - name: Run pytest
         run: conda run -n chrono pytest -q
