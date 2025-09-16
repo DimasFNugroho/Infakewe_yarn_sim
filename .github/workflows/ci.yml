@@ -1,4 +1,4 @@
-name: CI (Chrono cross-platform)
+me: CI (Chrono cross-platform)
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
@@ -14,31 +15,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Miniconda
+      - name: Set up Miniconda (Chrono, Py 3.10)
         uses: conda-incubator/setup-miniconda@v3
         with:
-          auto-activate-base: true
-          python-version: "3.10"
+          # Create & activate env from the YAML below
+          activate-environment: chrono
+          environment-file: env/environment.base.yml
 
-      - name: Create env from base spec
-        shell: bash
-        run: |
-          conda config --set channel_priority strict
-          conda env create -f env/environment.base.yml
+          # Make conda look in the right places (no "defaults" channel)
+          channels: projectchrono,conda-forge
+          conda-remove-defaults: true
+          channel-priority: strict
 
-      - name: Run tests (Linux headless)
-        if: matrix.os == 'ubuntu-latest'
-        shell: bash
-        run: |
-          source "$(conda info --base)/etc/profile.d/conda.sh"
-          conda activate chrono
-          # headless is fine; tests are non-visual
-          python -m pytest
+          # QoL
+          auto-update-conda: false
+          conda-solver: libmamba
 
-      - name: Run tests (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: bash
+      - name: Show environment
         run: |
-          source "$(conda info --base)/etc/profile.d/conda.sh"
-          conda activate chrono
-          python -m pytest
+          conda run -n chrono python -V
+          conda run -n chrono conda list
+
+      - name: Run tests
+        run: conda run -n chrono pytest -q
