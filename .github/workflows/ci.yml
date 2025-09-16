@@ -1,45 +1,39 @@
-name: CI
+name: CI (Chrono cross-platform)
 
 on:
   push:
-    branches: [ main ]
   pull_request:
 
 jobs:
   test:
-    name: test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        # Pin Windows to 2022 for stability; you can switch to windows-latest later.
-        os: [ubuntu-latest, windows-2022]
-    defaults:
-      run:
-        shell: bash -l {0}   # login shell => conda env auto-activates on each step
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Miniconda (Python 3.10)
+      - name: Set up Miniconda (Python 3.10)
         uses: conda-incubator/setup-miniconda@v3
         with:
-          python-version: "3.10"
-          activate-environment: test
-          auto-activate-base: false
+          # Create & activate from the env file below
+          activate-environment: chrono
+          environment-file: env/environment.base.yml
+
+          # Important: avoid "defaults" and ToS prompts
+          channels: projectchrono,conda-forge
+          conda-remove-defaults: true
+          channel-priority: strict
+
+          auto-update-conda: false
           conda-solver: libmamba
-          channels: conda-forge
 
-      - name: Sanity check
+      - name: Show environment
         run: |
-          which python
-          python -V
-          conda env list
-
-      - name: Install deps
-        run: |
-          python -m pip install -U pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          if [ -f pyproject.toml ]; then pip install .; fi
+          conda run -n chrono python -V
+          conda run -n chrono conda list
 
       - name: Run tests
-        run: pytest -q
+        run: conda run -n chrono pytest -q
