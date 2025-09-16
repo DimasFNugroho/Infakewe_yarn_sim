@@ -1,0 +1,44 @@
+name: CI (Chrono cross-platform)
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-activate-base: true
+          python-version: "3.10"
+
+      - name: Create env from base spec
+        shell: bash
+        run: |
+          conda config --set channel_priority strict
+          conda env create -f env/environment.base.yml
+
+      - name: Run tests (Linux headless)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          source "$(conda info --base)/etc/profile.d/conda.sh"
+          conda activate chrono
+          # headless is fine; tests are non-visual
+          python -m pytest
+
+      - name: Run tests (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          source "$(conda info --base)/etc/profile.d/conda.sh"
+          conda activate chrono
+          python -m pytest
