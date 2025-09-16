@@ -1,0 +1,17 @@
+name: chrono
+channels:
+  - projectchrono/label/release
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pychrono=8.0.0     # verified stable, avoids CUDA deps of newer builds
+  - numpy
+  - matplotlib
+  - json5
+  - pip
+  # Helpful pins for rendering/compat
+  - irrlicht=1.8.5
+  - glew>=2.1,<3
+  - sdl2
+  - eigen
