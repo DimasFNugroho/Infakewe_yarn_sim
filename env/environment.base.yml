@@ -1,0 +1,12 @@
+name: chrono
+channels:
+  - projectchrono/label/release
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pychrono=8.0.0
+  - irrlicht=1.8.5
+  - numpy
+  - matplotlib
+  - json5
