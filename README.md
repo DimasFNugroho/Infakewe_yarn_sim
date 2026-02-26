@@ -125,6 +125,9 @@ To force an editable reinstall before running tests:
 REINSTALL=1 scripts/tools/run_local_tests.sh
 ```
 
+Note: running `python -m pytest` directly assumes you already ran
+`python -m pip install -e .` in the active environment.
+
 ## Packaging note
 
 `pip install -e .` is supported for the helper package only. PyChrono itself is
