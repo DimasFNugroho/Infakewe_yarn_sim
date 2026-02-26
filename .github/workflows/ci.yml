@@ -78,13 +78,10 @@ jobs:
         if: runner.os == 'Windows'
         shell: powershell
         run: |
-          $code = @'
-          import pychrono as chrono
-          import sys
-          print("chrono version:", getattr(chrono, "__version__", "unknown"))
-          print("python:", sys.version)
-          '@
-          conda run -n chrono python -c $code
+          $code = "import pychrono as chrono; import sys; " +
+                  "print('chrono version:', getattr(chrono, '__version__', 'unknown')); " +
+                  "print('python:', sys.version)"
+          conda run -n chrono python -c "$code"
 
       - name: Run pytest
         run: conda run -n chrono python -m pytest -q
