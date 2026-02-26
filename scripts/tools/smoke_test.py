@@ -8,20 +8,39 @@ smoke_test.py — minimal Proof-of-Life for PyChrono + Irrlicht
 
 import pychrono as chrono
 
-def make_system():
-    sys = chrono.ChSystemNSC()
+def set_gravity(sys, gvec):
+    for name in ("Set_G_acc", "SetGravity", "Set_G_acceleration", "Set_Gacc"):
+        if hasattr(sys, name):
+            getattr(sys, name)(gvec)
+            return
+    if hasattr(sys, "Set_g_acc"):
+        sys.Set_g_acc(gvec)
+    else:
+        raise AttributeError("No gravity setter in this PyChrono build")
+
+def prefer_bullet(sys):
     try:
         sys.SetCollisionSystemType(chrono.ChCollisionSystem.Type_BULLET)
     except Exception:
         pass
+
+def tune_collision_defaults(envelope=0.003, margin=0.002):
     try:
-        chrono.ChCollisionModel.SetDefaultSuggestedEnvelope(0.003)
-        chrono.ChCollisionModel.SetDefaultSuggestedMargin(0.002)
+        chrono.ChCollisionModel.SetDefaultSuggestedEnvelope(envelope)
+        chrono.ChCollisionModel.SetDefaultSuggestedMargin(margin)
+    except Exception:
+        pass
+
+def make_system():
+    sys = chrono.ChSystemNSC()
+    prefer_bullet(sys)
+    tune_collision_defaults(envelope=0.003, margin=0.002)
+    try:
         sys.SetMaxPenetrationRecoverySpeed(0.5)
         sys.SetMinBounceSpeed(0.05)
     except Exception:
         pass
-    sys.Set_G_acc(chrono.ChVectorD(0, -9.81, 0))
+    set_gravity(sys, chrono.ChVectorD(0, -9.81, 0))
     return sys
 
 def build_scene(sys):

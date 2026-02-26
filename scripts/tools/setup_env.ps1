@@ -1,6 +1,6 @@
 param(
   [string]$EnvName = "chrono",
-  [string]$Yml     = "env\environment.win-64.yml",
+  [string]$Yml     = "env\environment.base.yml",
   [string]$LockYml = "env\environment.win-64.lock.yml",
   [string]$Explicit= "env\explicit-win-64.txt",
   [switch]$UseMamba
@@ -29,32 +29,44 @@ if (Exists-Env $EnvName) {
   $createCmd = { conda env create -f $Yml }
   if ($UseMamba) { $createCmd = { mamba env create -f $Yml } }
 
-  if (-not (Test-Path $Yml)) { throw "Missing $Yml" }
-  if (-not (Try-Create $createCmd "Create from $Yml")) {
-    if (Test-Path $LockYml) {
-      $lockCmd = { conda env create -f $LockYml }
-      if ($UseMamba) { $lockCmd = { mamba env create -f $LockYml } }
-      if (-not (Try-Create $lockCmd "Create from $LockYml")) {
-        if (Test-Path $Explicit) {
-          $expCmd = { conda create -n $EnvName --file $Explicit -y }
-          if (-not (Try-Create $expCmd "Create from $Explicit")) {
-            throw "All env creation methods failed."
-          }
-        } else { throw "No lock or explicit spec available." }
-      }
-    } else {
-      throw "No lock file found at $LockYml"
+  if (Test-Path $Yml) {
+    if (-not (Try-Create $createCmd "Create from $Yml")) {
+      Write-Warning "Failed to create from $Yml"
+    } else { return }
+  } else {
+    Write-Warning "Missing $Yml"
+  }
+
+  if (Test-Path $LockYml) {
+    $lockCmd = { conda env create -f $LockYml }
+    if ($UseMamba) { $lockCmd = { mamba env create -f $LockYml } }
+    if (-not (Try-Create $lockCmd "Create from $LockYml")) {
+      Write-Warning "Failed to create from $LockYml"
+    } else { return }
+  }
+
+  if (Test-Path $Explicit) {
+    $expCmd = { conda create -n $EnvName --file $Explicit -y }
+    if (-not (Try-Create $expCmd "Create from $Explicit")) {
+      throw "All env creation methods failed."
     }
+  } else {
+    throw "No env specs found (base, lock, or explicit)."
   }
 }
 
 Write-Host "Running PyChrono sanity check..." -ForegroundColor Cyan
-conda run -n $EnvName python - <<'PY'
+$code = @'
 import pychrono as chrono
 print("pychrono import OK")
 print("Has ChSystemNSC:", hasattr(chrono,"ChSystemNSC"))
-print("Has ChVisualSystemIrrlicht:", hasattr(__import__("pychrono.irrlicht"), "ChVisualSystemIrrlicht"))
-PY
+try:
+    import pychrono.irrlicht as irr
+    print("Has ChVisualSystemIrrlicht:", hasattr(irr, "ChVisualSystemIrrlicht"))
+except Exception as e:
+    print("Irrlicht not available:", e)
+'@
+conda run -n $EnvName python -c $code
 
 Write-Host "Env ready. To use it:" -ForegroundColor Green
 Write-Host "  conda activate $EnvName"

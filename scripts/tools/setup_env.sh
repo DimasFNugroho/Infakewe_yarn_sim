@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ENV_NAME="${ENV_NAME:-chrono}"
-YML="${YML:-env/environment.linux-64.yml}"
+YML="${YML:-env/environment.base.yml}"
 LOCK_YML="${LOCK_YML:-env/environment.linux-64.lock.yml}"
 EXPLICIT="${EXPLICIT:-env/explicit-linux-64.txt}"
 USE_MAMBA="${USE_MAMBA:-auto}"       # auto|yes|no
@@ -25,16 +25,42 @@ if conda env list | grep -E "^\s*${ENV_NAME}\s" >/dev/null; then
 else
   if [[ -f "$YML" ]]; then
     echo ">> Creating env from $YML"
-    $SOLVER env create -f "$YML"
-  elif [[ -f "$LOCK_YML" ]]; then
-    echo ">> Creating env from $LOCK_YML"
-    $SOLVER env create -f "$LOCK_YML"
-  elif [[ -f "$EXPLICIT" ]]; then
-    echo ">> Creating env from $EXPLICIT"
-    conda create -n "$ENV_NAME" --file "$EXPLICIT" -y
-  else
-    echo "ERROR: No env files found."
-    exit 1
+    if $SOLVER env create -f "$YML"; then
+      :
+    else
+      echo ">> Failed to create from $YML"
+      if conda env list | grep -E "^\s*${ENV_NAME}\s" >/dev/null; then
+        echo "ERROR: Partial env '${ENV_NAME}' may exist; remove it before retrying."
+        echo "       conda env remove -n \"$ENV_NAME\""
+        exit 1
+      fi
+    fi
+  fi
+
+  if ! conda env list | grep -E "^\s*${ENV_NAME}\s" >/dev/null; then
+    if [[ -f "$LOCK_YML" ]]; then
+      echo ">> Creating env from $LOCK_YML"
+      if $SOLVER env create -f "$LOCK_YML"; then
+        :
+      else
+        echo ">> Failed to create from $LOCK_YML"
+        if conda env list | grep -E "^\s*${ENV_NAME}\s" >/dev/null; then
+          echo "ERROR: Partial env '${ENV_NAME}' may exist; remove it before retrying."
+          echo "       conda env remove -n \"$ENV_NAME\""
+          exit 1
+        fi
+      fi
+    fi
+  fi
+
+  if ! conda env list | grep -E "^\s*${ENV_NAME}\s" >/dev/null; then
+    if [[ -f "$EXPLICIT" ]]; then
+      echo ">> Creating env from $EXPLICIT"
+      conda create -n "$ENV_NAME" --file "$EXPLICIT" -y
+    else
+      echo "ERROR: No env files found (base, lock, or explicit)."
+      exit 1
+    fi
   fi
 fi
 
@@ -64,4 +90,4 @@ fi
 
 echo "Env ready. Next:"
 echo "  conda activate $ENV_NAME"
-echo "  python scripts/tutorials/5_4_sim_parameters/sim_param_test.py"
+echo "  python scripts/tutorials/5_object_interactions/5_4_sim_parameters/5_4_sim_param_test.py"
