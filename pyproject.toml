@@ -8,7 +8,7 @@ version = "0.0.0"
 description = "Yarn–guide simulation prototype using PyChrono"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = "MIT"
 dependencies = [
   "numpy",
   "matplotlib",
@@ -16,7 +16,4 @@ dependencies = [
 # PyChrono is installed via conda; see README packaging note.
 
 [tool.setuptools]
-package-dir = {"" = "src"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
+py-modules = []
