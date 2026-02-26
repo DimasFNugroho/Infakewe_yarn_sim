@@ -16,6 +16,10 @@ function Try-Create($cmd, $desc) {
   try {
     Write-Host ">> $desc" -ForegroundColor Cyan
     & $cmd
+    if ($LASTEXITCODE -ne 0) {
+      Write-Warning "Failed: $desc (exit code $LASTEXITCODE)"
+      return $false
+    }
     return $true
   } catch {
     Write-Warning "Failed: $desc"
@@ -37,7 +41,7 @@ if (Exists-Env $EnvName) {
     Write-Warning "Missing $Yml"
   }
 
-  if (Test-Path $LockYml) {
+  if (-not (Exists-Env $EnvName) -and (Test-Path $LockYml)) {
     $lockCmd = { conda env create -n $EnvName -f $LockYml }
     if ($UseMamba) { $lockCmd = { mamba env create -n $EnvName -f $LockYml } }
     if (-not (Try-Create $lockCmd "Create from $LockYml")) {

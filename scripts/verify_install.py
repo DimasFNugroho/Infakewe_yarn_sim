@@ -8,7 +8,7 @@ except Exception as e:
         print("PyChrono import failed:", e)
         raise SystemExit(1)
 
-print("Chrono version function not found")
+print("Chrono version:", getattr(chrono, "__version__", "unknown"))
 
 # Build tiniest FEA object to ensure module availability
 mesh = fea.ChMesh()

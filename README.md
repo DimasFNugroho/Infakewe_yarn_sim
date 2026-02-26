@@ -47,7 +47,7 @@ Infakewe_yarn_sim/
    Expected output (example):
 
    ```
-   Chrono version function not found
+   Chrono version: unknown  # or a version string, depending on build
    FEA mesh OK: ChMesh
    System OK: ChSystemSMC
    ```
