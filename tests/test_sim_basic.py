@@ -12,7 +12,7 @@ Notes:
 
 import math
 import pychrono as chrono
-from tests.common.compat import (
+from .common.compat import (
     set_gravity, prefer_bullet, tune_collision_defaults, set_single_thread
 )
 
