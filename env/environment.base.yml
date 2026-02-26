@@ -11,5 +11,6 @@ dependencies:
   - matplotlib
   - json5
   - pytest
+  - pip
   - execnet=2.1.1
   - pytest-xdist=3.8.0
