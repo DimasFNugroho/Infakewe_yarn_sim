@@ -63,7 +63,9 @@ jobs:
           conda install -y -n chrono pytest
           conda run -n chrono python -m pip install -e .
 
-      - name: Sanity import
+      - name: Sanity import (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
         run: |
           conda run -n chrono python - << "PY"
           import pychrono as chrono
@@ -71,6 +73,18 @@ jobs:
           print("chrono version:", getattr(chrono, "__version__", "unknown"))
           print("python:", sys.version)
           PY
+
+      - name: Sanity import (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $code = @'
+          import pychrono as chrono
+          import sys
+          print("chrono version:", getattr(chrono, "__version__", "unknown"))
+          print("python:", sys.version)
+          '@
+          conda run -n chrono python -c $code
 
       - name: Run pytest
         run: conda run -n chrono python -m pytest -q
