@@ -63,7 +63,8 @@ jobs:
 
       - name: Sanity import
         run: conda run -n chrono python - << "PY"
-import chrono, sys
+import pychrono as chrono
+import sys
 print("chrono version:", getattr(chrono, "__version__", "unknown"))
 print("python:", sys.version)
 PY
