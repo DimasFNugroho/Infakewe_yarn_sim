@@ -60,7 +60,7 @@ jobs:
       # ---------- Install your package and run tests ----------
       - name: Install package (editable)
         run: |
-          conda install -y -n chrono pytest
+          conda run -n chrono python -m pip install pytest
           conda run -n chrono python -m pip install -e .
 
       - name: Sanity import (Linux)
