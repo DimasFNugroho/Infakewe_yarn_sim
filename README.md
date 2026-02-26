@@ -18,7 +18,6 @@ Infakewe_yarn_sim/
 ├─ src/chrono_yarn/         → source package (future simulation code)
 │  └─ __init__.py
 ├─ scripts/                 → runnable examples + tools
-│  ├─ hello_world.py
 │  ├─ verify_install.py
 │  ├─ tutorials/            → example scenes
 │  └─ tools/                → env + test helpers
@@ -105,7 +104,7 @@ conda install path\to\pychrono-<version>-py310_*.tar.bz2
 ## Running the examples
 
 ```bash
-python scripts/hello_world.py
+python scripts/verify_install.py
 python scripts/tools/smoke_test.py
 python scripts/tutorials/4_chains_of_bodies/4_2_motor_pulled_rope.py
 ```

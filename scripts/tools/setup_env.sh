@@ -25,7 +25,7 @@ if conda env list | grep -E "^\s*${ENV_NAME}\s" >/dev/null; then
 else
   if [[ -f "$YML" ]]; then
     echo ">> Creating env from $YML"
-    if $SOLVER env create -f "$YML"; then
+    if $SOLVER env create -n "$ENV_NAME" -f "$YML"; then
       :
     else
       echo ">> Failed to create from $YML"
@@ -40,7 +40,7 @@ else
   if ! conda env list | grep -E "^\s*${ENV_NAME}\s" >/dev/null; then
     if [[ -f "$LOCK_YML" ]]; then
       echo ">> Creating env from $LOCK_YML"
-      if $SOLVER env create -f "$LOCK_YML"; then
+      if $SOLVER env create -n "$ENV_NAME" -f "$LOCK_YML"; then
         :
       else
         echo ">> Failed to create from $LOCK_YML"

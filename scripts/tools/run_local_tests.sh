@@ -13,7 +13,7 @@ cd "$REPO_ROOT"
 # Create env if missing
 if ! conda env list | awk '{print $1}' | grep -qx "$ENV_NAME"; then
   conda config --set channel_priority strict
-  conda env create -f "$BASE_YML"
+  conda env create -n "$ENV_NAME" -f "$BASE_YML"
 fi
 
 # Headless by default; install xvfb if missing (optional)

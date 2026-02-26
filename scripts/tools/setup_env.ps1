@@ -26,31 +26,31 @@ function Try-Create($cmd, $desc) {
 if (Exists-Env $EnvName) {
   Write-Host "Conda env '$EnvName' already exists. Skipping creation." -ForegroundColor Yellow
 } else {
-  $createCmd = { conda env create -f $Yml }
-  if ($UseMamba) { $createCmd = { mamba env create -f $Yml } }
+  $createCmd = { conda env create -n $EnvName -f $Yml }
+  if ($UseMamba) { $createCmd = { mamba env create -n $EnvName -f $Yml } }
 
   if (Test-Path $Yml) {
     if (-not (Try-Create $createCmd "Create from $Yml")) {
       Write-Warning "Failed to create from $Yml"
-    } else { return }
+    }
   } else {
     Write-Warning "Missing $Yml"
   }
 
   if (Test-Path $LockYml) {
-    $lockCmd = { conda env create -f $LockYml }
-    if ($UseMamba) { $lockCmd = { mamba env create -f $LockYml } }
+    $lockCmd = { conda env create -n $EnvName -f $LockYml }
+    if ($UseMamba) { $lockCmd = { mamba env create -n $EnvName -f $LockYml } }
     if (-not (Try-Create $lockCmd "Create from $LockYml")) {
       Write-Warning "Failed to create from $LockYml"
-    } else { return }
+    }
   }
 
-  if (Test-Path $Explicit) {
+  if (-not (Exists-Env $EnvName) -and (Test-Path $Explicit)) {
     $expCmd = { conda create -n $EnvName --file $Explicit -y }
     if (-not (Try-Create $expCmd "Create from $Explicit")) {
       throw "All env creation methods failed."
     }
-  } else {
+  } elseif (-not (Exists-Env $EnvName)) {
     throw "No env specs found (base, lock, or explicit)."
   }
 }
