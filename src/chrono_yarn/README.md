@@ -14,7 +14,7 @@ This package is intended to contain:
 - result containers
 - compatibility helpers for PyChrono API differences
 
-Runnable demos, tutorials, and experiment scripts should remain in `scripts/`.
+Runnable demos and experiment scripts should remain in `scripts/`.
 
 ## Current Status
 
@@ -174,4 +174,3 @@ Role:
    - compose floor + yarn into `SceneHandles`
 4. `sim_runner.py`
    - stepping loop + sampling into `SimulationResult`
-

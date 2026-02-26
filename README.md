@@ -19,7 +19,7 @@ Infakewe_yarn_sim/
 │  └─ __init__.py
 ├─ scripts/                 → runnable examples + tools
 │  ├─ verify_install.py
-│  ├─ tutorials/            → example scenes
+│  ├─ examples/             → yarn simulation demos
 │  └─ tools/                → env + test helpers
 ├─ tests/                   → pytest smoke tests
 ├─ install_conda.sh         → helper to install Miniconda (Linux)
@@ -106,7 +106,7 @@ conda install path\to\pychrono-<version>-py310_*.tar.bz2
 ```bash
 python scripts/verify_install.py
 python scripts/tools/smoke_test.py
-python scripts/tutorials/4_chains_of_bodies/4_2_motor_pulled_rope.py
+python scripts/examples/fea_chrono_yarn/hanging_cable_yarn.py
 ```
 
 ## Running tests
