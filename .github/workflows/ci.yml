@@ -71,4 +71,4 @@ jobs:
           PY
 
       - name: Run pytest
-        run: conda run -n chrono pytest -q
+        run: conda run -n chrono python -m pytest -q
