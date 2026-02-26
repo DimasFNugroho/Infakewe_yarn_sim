@@ -62,12 +62,13 @@ jobs:
         run: conda run -n chrono pip install -e .
 
       - name: Sanity import
-        run: conda run -n chrono python - << "PY"
-import pychrono as chrono
-import sys
-print("chrono version:", getattr(chrono, "__version__", "unknown"))
-print("python:", sys.version)
-PY
+        run: |
+          conda run -n chrono python - << "PY"
+          import pychrono as chrono
+          import sys
+          print("chrono version:", getattr(chrono, "__version__", "unknown"))
+          print("python:", sys.version)
+          PY
 
       - name: Run pytest
         run: conda run -n chrono pytest -q
