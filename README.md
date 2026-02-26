@@ -23,7 +23,7 @@ Infakewe_yarn_sim/
 │  ├─ tutorials/            → example scenes
 │  └─ tools/                → env + test helpers
 ├─ tests/                   → pytest smoke tests
-├─ install_conda.sh         → helper to fetch Miniconda (Linux)
+├─ install_conda.sh         → helper to install Miniconda (Linux)
 ├─ .github/workflows/ci.yml → CI
 ├─ .gitignore               → ignored files
 ├─ README.md                → this file
@@ -62,6 +62,21 @@ conda env create -f env/environment.linux-64.lock.yml
 # or: conda create -n chrono --file env/explicit-linux-64.txt
 ```
 
+Terminology used in this repo:
+
+- **Base spec** (`environment.base.yml`): human‑edited, flexible dependencies.
+- **Lock spec** (`environment.*.lock.yml`): exact versions/builds, but created via
+  the solver so compatibility constraints are enforced.
+- **Explicit spec** (`explicit-*.txt`): exact package files, installed directly
+  without solver checks.
+
+Examples of when to use each:
+
+- **Base**: you’re developing and want to add or update dependencies.
+- **Lock**: CI or a team wants consistent environments with compatibility checks.
+- **Explicit**: you need maximum reproducibility and can accept brittleness if
+  exact package URLs change.
+
 If you prefer helper scripts (these accept overrides if you want to point at
 `environment.base.yml`):
 
@@ -70,6 +85,8 @@ ENV_NAME=chrono YML=env/environment.base.yml scripts/tools/setup_env.sh
 # Windows PowerShell:
 # .\scripts\tools\setup_env.ps1 -EnvName chrono -Yml env\environment.base.yml
 ```
+
+Note: `install_conda.sh` installs Miniconda into `~/miniconda3`.
 
 If PyChrono is missing after the environment is created:
 
@@ -101,9 +118,22 @@ python -m pytest
 scripts/tools/run_local_tests.sh
 ```
 
+If you created the env from explicit specs, `pip` should already be included.
+To force an editable reinstall before running tests:
+
+```bash
+REINSTALL=1 scripts/tools/run_local_tests.sh
+```
+
+## Packaging note
+
+`pip install -e .` is supported for the helper package only. PyChrono itself is
+installed via conda (it is not available on PyPI). Create the conda env first,
+then use editable install if you want local imports for `chrono_yarn` and helpers.
+
 ## Tests directory
 
-- `tests/pytest.ini` configures pytest defaults for the repo.
+- `pytest.ini` configures pytest defaults for the repo.
 - `tests/test_install.py` verifies core PyChrono imports and basic system types.
 - `tests/test_sim_basic.py` runs simple NSC/SMC drop tests to validate basic dynamics.
 
