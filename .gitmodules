@@ -1,0 +1,3 @@
+[submodule "external/ista_madypg"]
+	path = external/ista_madypg
+	url = https://git.ista.ac.at/gsperl/MADYPG
