@@ -32,3 +32,26 @@ def attach_fea_cable_visuals(mesh, vis_cfg: FEAVisualizationConfig) -> list:
         shapes.append(node_vis)
 
     return shapes
+
+
+def attach_fea_strain_overlay(
+    mesh,
+    *,
+    data_type=chrono.ChVisualShapeFEA.DataType_ANCF_BEAM_AX,
+    min_max: tuple[float, float] = (-0.02, 0.02),
+    smooth_faces: bool = True,
+) -> object:
+    """Attach a scalar overlay (strain/stress-like) on top of cable visuals."""
+    overlay = chrono.ChVisualShapeFEA(mesh)
+    overlay.SetFEMdataType(data_type)
+    overlay.SetWireframe(False)
+    if hasattr(overlay, "SetBeamResolution"):
+        overlay.SetBeamResolution(8)
+    if hasattr(overlay, "SetBeamResolutionSection"):
+        overlay.SetBeamResolutionSection(6)
+    if hasattr(overlay, "SetSmoothFaces"):
+        overlay.SetSmoothFaces(bool(smooth_faces))
+    if hasattr(overlay, "SetColorscaleMinMax"):
+        overlay.SetColorscaleMinMax(float(min_max[0]), float(min_max[1]))
+    mesh.AddVisualShapeFEA(overlay)
+    return overlay

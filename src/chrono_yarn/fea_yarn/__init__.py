@@ -9,7 +9,17 @@ from .config import FEAHangingYarnConfig, FEASolverConfig, FEAVisualizationConfi
 from .cable import CableBuildHandles, build_cable_ancf_yarn, make_cable_section
 from .scene import FEAHangingSceneHandles, build_hanging_yarn_scene
 from .metrics import cable_tip_position, cable_max_sag
-from .visualization import attach_fea_cable_visuals
+from .visualization import attach_fea_cable_visuals, attach_fea_strain_overlay
+from .braided_sheave import (
+    FEABraidedYarnConfig,
+    FEASheaveConfig,
+    FEAPullProgramConfig,
+    FEABraidedSheaveSceneHandles,
+    build_braided_sheave_scene,
+    step_braided_sheave_scene,
+    estimate_relative_displacement,
+    max_node_nan,
+)
 
 __all__ = [
     "FEAHangingYarnConfig",
@@ -23,5 +33,13 @@ __all__ = [
     "cable_tip_position",
     "cable_max_sag",
     "attach_fea_cable_visuals",
+    "attach_fea_strain_overlay",
+    "FEABraidedYarnConfig",
+    "FEASheaveConfig",
+    "FEAPullProgramConfig",
+    "FEABraidedSheaveSceneHandles",
+    "build_braided_sheave_scene",
+    "step_braided_sheave_scene",
+    "estimate_relative_displacement",
+    "max_node_nan",
 ]
-
