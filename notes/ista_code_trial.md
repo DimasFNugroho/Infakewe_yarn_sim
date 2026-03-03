@@ -22,3 +22,21 @@ But it is not a yarn/FEM strand model, so it does not directly replace the hangi
 ## Recommendation
 - Keep current yarn simulation stack as primary.
 - If needed later, integrate ideas from `frictionfrenzy` only for contact/friction stage.
+
+## MADYPG trial (paper 10.1145/3450626.3459816)
+Repository:
+- `external/ista_madypg` (official ISTA MADYPG code)
+
+Status:
+- Code builds successfully on this machine in non-parallel mode.
+- Working build command:
+  - `python exec.py -p 0 mesh2yarns 1`
+- `-p 0` is required here because upstream code uses legacy TBB task API, while available TBB is oneTBB and causes link failures in parallel mode.
+
+Compatibility fixes applied in local MADYPG clone:
+- add missing `<cstdint>` includes in FBX and bitsery headers
+- add missing `<limits>` include in bitsery serializer
+- link `ZLIB::ZLIB` for bundled FBX utility target
+
+Runtime note:
+- If SDL reports `No available video device`, run outside tmux or propagate `DISPLAY` / `WAYLAND_DISPLAY` / `XDG_RUNTIME_DIR` into tmux environment.
