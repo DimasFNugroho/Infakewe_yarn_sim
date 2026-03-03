@@ -1,0 +1,238 @@
+// NOTE: DEFORMSHADER_WRKGRPSIZE defined during compilation
+layout(local_size_x = DEFORMSHADER_WRKGRPSIZE, local_size_y = 1, local_size_z = 1) in;
+
+// input buffer definitions ---------------------------------------------------
+
+struct _XwsVertex
+{
+  float x,y,z,th,tarc,nx,ny,nz,u,v,r;
+};
+layout(std430, binding = 0) /*restrict*/ writeonly buffer _XwsBuffer
+{
+  _XwsVertex data[];
+} buf_Xws;
+
+struct _XmsVertex
+{
+  float u,v,h,th,nx,ny,nz,tarc;
+  uint pix;
+};
+layout(std430, binding = 1) readonly buffer _XmsBuffer
+{
+  _XmsVertex data[];
+} buf_Xms;
+
+struct _bary {
+  float[3] abc;
+  int tri;
+};
+layout(std430, binding = 2) readonly buffer _baryBuffer
+{
+  _bary data[];
+} buf_B0;
+
+layout(std430, binding = 3) readonly buffer _meshSBuffer
+{
+  float[6] data[];
+} buf_meshS;
+
+layout(std430, binding = 4) readonly buffer _meshFmsBuffer
+{
+  uint[3] data[];
+} buf_meshFms;
+
+#define AXES_MAX_LENGTH 32
+layout(std430, binding = 5) readonly buffer _texAxesBuffer
+{
+  int lenSX;
+  int lenSA;
+  int lenSY;
+  float[AXES_MAX_LENGTH] SX;
+  float[AXES_MAX_LENGTH] SA;
+  float[AXES_MAX_LENGTH] SY;
+  float[AXES_MAX_LENGTH] invSX;
+  float[AXES_MAX_LENGTH] invSA;
+  float[AXES_MAX_LENGTH] invSY;
+} buf_texAxes;
+
+layout(std430, binding = 6) readonly buffer _texDataBuffer
+{
+  vec4 data[];
+} buf_texData;
+
+// ----------------------------------------------------------------------------
+
+uniform float deform_reference = 1;
+uniform float linearized_bending = 1;
+uniform float min_eig = 0;
+uniform uint num_vertices; 
+
+// get data entry at specific deformation-cell ix (i_sx, i_sa, i_sy)
+// and additionally offset by periodic vertex index (pix)
+vec4 sample_at(uint i_sx, uint i_sa, uint i_sy, uint pix) {
+  uint loc = i_sx + buf_texAxes.lenSX * (i_sa + buf_texAxes.lenSA * (i_sy + buf_texAxes.lenSY * pix));
+  return buf_texData.data[loc];
+}
+
+// https://en.cppreference.com/w/cpp/algorithm/upper_bound#Possible_implementation
+// note that for a full array ilast would be len(array) and not the index of the last element!
+// which_array is used to decide between the three arrays, hardcoded and with more checks and lookups, but oh well...
+uint upper_bound(uint istart,uint iend, uint which_array, float value) { 
+  uint i,step,count;
+  count = iend-istart;
+  float arrvalue;
+  while (count > 0) {
+    step = count/2;
+    i = istart + step;
+
+    if (which_array == 0)
+      arrvalue = buf_texAxes.SX[i];
+    else if (which_array == 1)
+      arrvalue = buf_texAxes.SA[i];
+    else
+      arrvalue = buf_texAxes.SY[i];
+    
+    if (value < arrvalue) {
+      count = step;
+    } else {
+      istart = i+1;
+      count -= step + 1;
+    }
+  }
+  return istart;
+} 
+
+// trilinear interpolation using strains sx sa sy, and offset pix
+vec4 sample3D(vec3 strain, uint pix) {
+  float a_sx, a_sa, a_sy;
+  // first cell (i,i+1) s.t. val < ax[i+1] else last = size-2
+  uint i_sx, i_sa, i_sy;
+
+  // use upper bound to find the index st. value<arr[i]
+  // and so upper_bound - 1 is s.t. arr[i] <= value < arr[i+1]
+  i_sx = upper_bound(1, buf_texAxes.lenSX - 1, 0, strain.x) - 1;
+  i_sa = upper_bound(1, buf_texAxes.lenSA - 1, 1, strain.y) - 1;
+  i_sy = upper_bound(1, buf_texAxes.lenSY - 1, 2, strain.z) - 1;
+  a_sx = (strain.x - buf_texAxes.SX[i_sx]) * buf_texAxes.invSX[i_sx];
+  a_sa = (strain.y - buf_texAxes.SA[i_sa]) * buf_texAxes.invSA[i_sa];
+  a_sy = (strain.z - buf_texAxes.SY[i_sy]) * buf_texAxes.invSY[i_sy];
+  // a_sx = (strain.x - buf_texAxes.SX[i_sx]) / (buf_texAxes.SX[i_sx+1] - buf_texAxes.SX[i_sx]);
+  // a_sa = (strain.y - buf_texAxes.SA[i_sa]) / (buf_texAxes.SA[i_sa+1] - buf_texAxes.SA[i_sa]);
+  // a_sy = (strain.z - buf_texAxes.SY[i_sy]) / (buf_texAxes.SY[i_sy+1] - buf_texAxes.SY[i_sy]);
+
+  // clamp extrapolation
+  a_sx = clamp(a_sx, 0.0, 1.0);
+  a_sa = clamp(a_sa, 0.0, 1.0);
+  a_sy = clamp(a_sy, 0.0, 1.0);
+
+  vec4 d =
+      (1 - a_sx) * (1 - a_sa) * (1 - a_sy) * sample_at(i_sx, i_sa, i_sy, pix);
+  d += (1 - a_sx) * (1 - a_sa) * a_sy * sample_at(i_sx, i_sa, i_sy + 1, pix);
+  d += (1 - a_sx) * a_sa * (1 - a_sy) * sample_at(i_sx, i_sa + 1, i_sy, pix);
+  d += (1 - a_sx) * a_sa * a_sy * sample_at(i_sx, i_sa + 1, i_sy + 1, pix);
+  d += a_sx * (1 - a_sa) * (1 - a_sy) * sample_at(i_sx + 1, i_sa, i_sy, pix);
+  d += a_sx * (1 - a_sa) * a_sy * sample_at(i_sx + 1, i_sa, i_sy + 1, pix);
+  d += a_sx * a_sa * (1 - a_sy) * sample_at(i_sx + 1, i_sa + 1, i_sy, pix);
+  d += a_sx * a_sa * a_sy * sample_at(i_sx + 1, i_sa + 1, i_sy + 1, pix);
+
+  return d;
+}
+
+// clamp eigenvalues of a 2x2 symmetric matrix
+void symmetric_eig_clamp(inout vec3 m, float mineigval) {
+  // following:
+  // Closed-form expressions of the eigen decomposition of 2x2 and 3x3 Hermitian matrices
+  // https://hal.archives-ouvertes.fr/hal-01501221/document
+
+  // mat C = a,c;c,b  (vec m ~ a,c,b)
+  float ab = (m.x - m.z); // a - b
+  float d = 4*m.y*m.y + ab*ab; // d^2
+  if (d < 0.0001) {
+    // d == 0 ---> a == b && c == 0 ---> l1 = l2 = a = b
+    float l12 = m.x; 
+    l12 = max(l12, mineigval);
+    m.x = l12;
+    m.z = l12;
+    // m.y = 0; 
+  } else {
+    d = sqrt(d);
+    float l1 = (m.x+m.z-d)*0.5;
+    float l2 = (m.x+m.z+d)*0.5;
+    l1 = max(l1, mineigval);
+    l2 = max(l2, mineigval);
+    float A = (l2-l1);
+    float B = d*(l1+l2);
+    float C = A*ab;
+    float inv2d = 0.5/d;
+    m.x = (B+C)*inv2d;
+    m.z = (B-C)*inv2d;
+    m.y *= 2*A*inv2d; 
+  }
+}
+
+void main()
+{
+  uint vix = gl_GlobalInvocationID.x;
+  if (vix >= num_vertices) // incase of num_vertices incompatible with workgroup size
+    return;
+
+  _bary B0 = buf_B0.data[vix];
+  int tri = B0.tri;
+
+  if(tri < 0) // skip 'deleted' vertices
+    return;
+
+  _XmsVertex Xms = buf_Xms.data[vix];
+  _XwsVertex Xws; // output vertex
+
+  Xws.x = Xms.u;
+  Xws.y = Xms.v;
+  Xws.z = Xms.h;
+  Xws.th = Xms.th;
+  Xws.tarc = Xms.tarc;
+  Xws.nx = Xms.nx;
+  Xws.ny = Xms.ny;
+  Xws.nz = Xms.nz;
+  Xws.u = Xms.u;
+  Xws.v = Xms.v;
+  Xws.r = 1; // deprecate
+  
+  if (deform_reference < 0.0001) {
+    buf_Xws.data[vix] = Xws;
+    return;
+  }
+
+  float[3] abc = B0.abc;
+
+  // interpolate strains
+  uint[3] ms_ixs = buf_meshFms.data[tri];
+  vec3 strain = vec3(0);
+
+  // linearized bending
+  for (int i = 0; i < 3; ++i) {
+    float[6] s = buf_meshS.data[ms_ixs[i]];
+    strain += (vec3(s[0], s[1], s[2]) - linearized_bending *2*Xms.h*vec3(s[3],s[4],s[5])) * abc[i];
+  }
+
+  // clamp compression
+  if(min_eig > 0)
+    symmetric_eig_clamp(strain, min_eig);
+
+  // convert to sx sa sy
+  vec3 strain_actual = vec3(
+    sqrt(strain.x) - 1,          // s_x
+    strain.y / sqrt(strain.x * strain.z),  // s_a
+    sqrt(strain.z) - 1           // s_y
+  );
+
+  // interpolate/texture-lookup displacement
+  vec4 d = deform_reference * sample3D(strain_actual, Xms.pix);
+  
+  Xws.x += d.x;
+  Xws.y += d.y;
+  Xws.z += d.z;
+  Xws.th += d.w;
+  
+  buf_Xws.data[vix] = Xws; // store in buffer
+}
+

@@ -1,0 +1,12 @@
+[submodule "vcpkg"]
+	path = vcpkg
+	url = https://github.com/microsoft/vcpkg.git
+[submodule "src/dependencies/Discregrid"]
+	path = src/dependencies/Discregrid
+	url = https://github.com/InteractiveComputerGraphics/Discregrid.git
+[submodule "src/dependencies/PositionBasedDynamics"]
+	path = src/dependencies/PositionBasedDynamics
+	url = https://github.com/InteractiveComputerGraphics/PositionBasedDynamics.git
+[submodule "src/dependencies/GenericParameters"]
+	path = src/dependencies/GenericParameters
+	url = https://github.com/InteractiveComputerGraphics/GenericParameters.git
