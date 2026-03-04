@@ -12,9 +12,15 @@ Notes:
 
 import math
 import pychrono as chrono
-from .common.compat import (
-    set_gravity, prefer_bullet, tune_collision_defaults, set_single_thread
-)
+try:
+    from .common.compat import (
+        set_gravity, prefer_bullet, tune_collision_defaults, set_single_thread
+    )
+except ImportError:
+    # Support direct execution: `python tests/test_sim_basic.py`
+    from common.compat import (
+        set_gravity, prefer_bullet, tune_collision_defaults, set_single_thread
+    )
 
 
 # ---------- Materials ----------
