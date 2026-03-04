@@ -106,7 +106,8 @@ conda install path\to\pychrono-<version>-py310_*.tar.bz2
 ```bash
 python scripts/verify_install.py
 python scripts/tools/smoke_test.py
-python scripts/examples/fea_chrono_yarn/hanging_cable_yarn.py
+python scripts/examples/fea_chrono_yarn/paper_yarn_clamped_solid.py \
+  --config scripts/examples/fea_chrono_yarn/config/paper_yarn_clamped_solid.json
 ```
 
 ## Running tests
