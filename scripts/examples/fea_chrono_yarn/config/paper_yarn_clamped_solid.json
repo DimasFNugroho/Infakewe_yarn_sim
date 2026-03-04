@@ -1,59 +1,43 @@
 {
   "simulation": {
-    "dt_s": 0.05,
-    "integration_substeps": 5,
+    "dt_s": 0.0005,
+    "integration_substeps": 1,
     "gravity_m_s2": [0.0, -9.81, 0.0],
-    "solver_max_iterations": 120,
+    "solver_max_iterations": 150,
     "solver_tolerance": 1e-8
   },
   "runtime": {
     "precheck_duration_s": 0.08,
-    "physics_steps_per_render": 8,
-    "print_interval_s": 0.5,
-    "startup_delay_s": 0.35
+    "physics_steps_per_render": 16,
+    "print_interval_s": 1.0,
+    "startup_delay_s": 0.0
   },
-  "paper_model": {
-    "yarn_count_tex": 32.8,
-    "diameter_coefficient_k": 0.04,
-    "material_profile": "18s_4",
-    "poisson_ratio": 0.2,
-    "rayleigh_damping_s": 0.001
-  },
-  "material_table": {
-    "18s": {
-      "young_modulus_pa": 1438000000.0,
-      "density_kg_m3": 800.0
-    },
-    "18s_2": {
-      "young_modulus_pa": 1290000000.0,
-      "density_kg_m3": 800.0
-    },
-    "18s_4": {
-      "young_modulus_pa": 1118000000.0,
-      "density_kg_m3": 800.0
-    }
-  },
-  "yarn_geometry": {
-    "length_m": 0.6,
-    "elements_length": 60,
+  "yarn": {
+    "length_m": 1.0,
+    "element_count": 25,
+    "start_support_mode": "pinned",
     "origin_xyz_m": [0.0, 0.9, 0.0],
     "axis_direction_xyz": [1.0, 0.0, 0.0],
-    "up_direction_xyz": [0.0, 1.0, 0.0]
-  },
-  "initial_state": {
-    "tip_down_velocity_m_s": 0.0,
-    "initial_sag_amplitude_m": 0.0006
+    "up_direction_xyz": [0.0, 1.0, 0.0],
+    "diameter_m": 0.002,
+    "young_modulus_pa": 30000000.0,
+    "poisson_ratio": 2.2,
+    "density_kg_m3": 350.0,
+    "rayleigh_damping_s": 0.15,
+    "initial_sag_amplitude_m": 0.003,
+    "initial_tip_down_velocity_m_s": 0.0
   },
   "visualization": {
     "window_size_px": [1280, 720],
-    "window_title": "Paper Yarn (Beam FEM) - Clamped One End",
-    "camera_pos_xyz_m": [0.04, 0.86, 0.32],
-    "camera_target_xyz_m": [0.08, 0.86, 0.0],
-    "use_skybox": true,
+    "window_title": "Yarn Free Fall (Clamped One End)",
+    "camera_pos_xyz_m": [0.05, 0.86, 0.72],
+    "camera_target_xyz_m": [0.08, 0.56, 0.0],
+    "use_skybox": false,
     "use_typical_lights": true,
-    "background_brightness_pct": 100.0,
-    "beam_resolution": 12,
-    "beam_section_resolution": 8,
+    "background_brightness_pct": 10.0,
+    "show_overlay": true,
+    "beam_resolution": 6,
+    "beam_section_resolution": 4,
     "overlay_min": -0.02,
     "overlay_max": 0.04
   }

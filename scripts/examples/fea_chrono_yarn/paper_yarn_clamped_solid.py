@@ -1,13 +1,13 @@
-"""Paper-based yarn simulation: clamped one end, free at the other.
+"""Single yarn example: clamped at one end, free at the other.
 
-This script follows the paper parameterization (diameter from tex + material
-table) but uses a beam-continuum FEM discretization for stable runtime in
-PyChrono. It is a standalone model and does not reuse previous cable examples.
+This example intentionally keeps one scenario only and drives everything from
+one JSON config file.
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import math
 from pathlib import Path
@@ -31,46 +31,39 @@ DEFAULT_CFG = {
         "dt_s": 5.0e-4,
         "integration_substeps": 1,
         "gravity_m_s2": [0.0, -9.81, 0.0],
-        "solver_max_iterations": 120,
+        "solver_max_iterations": 150,
         "solver_tolerance": 1e-8,
     },
     "runtime": {
         "precheck_duration_s": 0.08,
-        "physics_steps_per_render": 8,
+        "physics_steps_per_render": 32,
         "print_interval_s": 0.5,
-        "startup_delay_s": 0.35,
+        "startup_delay_s": 0.0,
     },
-    "paper_model": {
-        "yarn_count_tex": 32.8,
-        "diameter_coefficient_k": 0.04,
-        "material_profile": "18s_4",
-        "poisson_ratio": 0.2,
-        "rayleigh_damping_s": 1.0e-3,
-    },
-    "material_table": {
-        "18s": {"young_modulus_pa": 1.438e9, "density_kg_m3": 800.0},
-        "18s_2": {"young_modulus_pa": 1.29e9, "density_kg_m3": 800.0},
-        "18s_4": {"young_modulus_pa": 1.118e9, "density_kg_m3": 800.0},
-    },
-    "yarn_geometry": {
-        "length_m": 0.60,
-        "elements_length": 60,
+    "yarn": {
+        "length_m": 0.6,
+        "element_count": 60,
+        "start_support_mode": "clamped",
         "origin_xyz_m": [0.0, 0.9, 0.0],
         "axis_direction_xyz": [1.0, 0.0, 0.0],
         "up_direction_xyz": [0.0, 1.0, 0.0],
-    },
-    "initial_state": {
-        "tip_down_velocity_m_s": 0.0,
-        "initial_sag_amplitude_m": 0.0012,
+        "diameter_m": 2.29e-4,
+        "young_modulus_pa": 1.118e9,
+        "poisson_ratio": 0.2,
+        "density_kg_m3": 800.0,
+        "rayleigh_damping_s": 1e-7,
+        "initial_sag_amplitude_m": 6e-4,
+        "initial_tip_down_velocity_m_s": 0.0,
     },
     "visualization": {
         "window_size_px": [1280, 720],
-        "window_title": "Paper Yarn (Beam FEM) - Clamped One End",
+        "window_title": "Yarn Free Fall (Clamped One End)",
         "camera_pos_xyz_m": [0.04, 0.86, 0.32],
         "camera_target_xyz_m": [0.08, 0.86, 0.0],
         "use_skybox": True,
         "use_typical_lights": True,
         "background_brightness_pct": 100.0,
+        "show_overlay": True,
         "beam_resolution": 12,
         "beam_section_resolution": 8,
         "overlay_min": -0.02,
@@ -102,13 +95,6 @@ def load_config(path: Path | None) -> dict:
     return cfg
 
 
-def diameter_from_tex_mm(tex: float, k: float) -> float:
-    """Equation from paper: D(mm) = k * sqrt(T_tex)."""
-    if tex <= 0.0 or k <= 0.0:
-        raise ValueError("tex and k must be > 0")
-    return float(k) * math.sqrt(float(tex))
-
-
 def unit(v: tuple[float, float, float]) -> tuple[float, float, float]:
     n = math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
     if n < 1e-12:
@@ -133,6 +119,9 @@ def add_beam_visuals(mesh, vis_cfg: dict) -> None:
     base.SetWireframe(False)
     mesh.AddVisualShapeFEA(base)
 
+    if not bool(vis_cfg.get("show_overlay", True)):
+        return
+
     overlay = chrono.ChVisualShapeFEA(mesh)
     overlay.SetFEMdataType(chrono.ChVisualShapeFEA.DataType_ANCF_BEAM_AX)
     if hasattr(overlay, "SetBeamResolution"):
@@ -145,38 +134,24 @@ def add_beam_visuals(mesh, vis_cfg: dict) -> None:
     mesh.AddVisualShapeFEA(overlay)
 
 
-def build_paper_beam_yarn(system, cfg: dict):
+def build_clamped_yarn(system, cfg: dict):
     sim_c = cfg["simulation"]
-    pm = cfg["paper_model"]
-    geo = cfg["yarn_geometry"]
-    ini = cfg["initial_state"]
-    mat_table = cfg["material_table"]
+    yarn_c = cfg["yarn"]
 
-    profile = str(pm["material_profile"])
-    if profile not in mat_table:
-        raise KeyError(f"material_profile '{profile}' missing in material_table")
-    E = float(mat_table[profile]["young_modulus_pa"])
-    rho = float(mat_table[profile]["density_kg_m3"])
-    nu = float(pm["poisson_ratio"])
+    length = float(yarn_c["length_m"])
+    element_count = int(yarn_c["element_count"])
+    dia_m = float(yarn_c["diameter_m"])
+    radius_m = 0.5 * dia_m
+    E = float(yarn_c["young_modulus_pa"])
+    nu = float(yarn_c["poisson_ratio"])
+    rho = float(yarn_c["density_kg_m3"])
     G = E / (2.0 * (1.0 + nu))
 
-    tex = float(pm["yarn_count_tex"])
-    k = float(pm["diameter_coefficient_k"])
-    dia_mm = diameter_from_tex_mm(tex, k)
-    dia_m = dia_mm * 1.0e-3
-    radius_m = 0.5 * dia_m
-
-    length = float(geo["length_m"])
-    n_elems = int(geo["elements_length"])
-    axis = unit(tuple(float(v) for v in geo["axis_direction_xyz"]))
-    up = unit(tuple(float(v) for v in geo["up_direction_xyz"]))
-    ox, oy, oz = (float(v) for v in geo["origin_xyz_m"])
+    axis = unit(tuple(float(v) for v in yarn_c["axis_direction_xyz"]))
+    up = unit(tuple(float(v) for v in yarn_c["up_direction_xyz"]))
+    ox, oy, oz = (float(v) for v in yarn_c["origin_xyz_m"])
     start = chrono.ChVectorD(ox, oy, oz)
-    end = chrono.ChVectorD(
-        ox + axis[0] * length,
-        oy + axis[1] * length,
-        oz + axis[2] * length,
-    )
+    end = chrono.ChVectorD(ox + axis[0] * length, oy + axis[1] * length, oz + axis[2] * length)
 
     mesh = fea.ChMesh()
     if hasattr(mesh, "SetAutomaticGravity"):
@@ -185,18 +160,25 @@ def build_paper_beam_yarn(system, cfg: dict):
 
     section = fea.ChBeamSectionEulerEasyCircular(dia_m, E, G, rho)
     if hasattr(section, "SetBeamRaleyghDamping"):
-        section.SetBeamRaleyghDamping(float(pm.get("rayleigh_damping_s", 1.0e-3)))
+        section.SetBeamRaleyghDamping(float(yarn_c["rayleigh_damping_s"]))
 
     builder = fea.ChBuilderBeamEuler()
-    builder.BuildBeam(mesh, section, n_elems, start, end, chrono.ChVectorD(*up))
+    builder.BuildBeam(mesh, section, element_count, start, end, chrono.ChVectorD(*up))
     nodes = list(builder.GetLastBeamNodes())
 
-    # Clamp at one end: both translation and rotation fixed.
+    # Clamp one end by default: fixed position and fixed rotation.
     nodes[0].SetFixed(True)
+    support_mode = str(yarn_c.get("start_support_mode", "clamped")).strip().lower()
+    if support_mode not in {"clamped", "pinned"}:
+        raise ValueError("yarn.start_support_mode must be 'clamped' or 'pinned'")
+    if support_mode == "pinned" and hasattr(nodes[0], "SetFixedD"):
+        try:
+            nodes[0].SetFixedD(False)
+        except Exception:
+            pass
 
-    # Tiny initial sag + velocity to break symmetry and show falling.
-    sag = float(ini["initial_sag_amplitude_m"])
-    tip_v = float(ini["tip_down_velocity_m_s"])
+    sag = float(yarn_c["initial_sag_amplitude_m"])
+    tip_v = float(yarn_c["initial_tip_down_velocity_m_s"])
     n = len(nodes)
     for i, node in enumerate(nodes):
         if i == 0:
@@ -217,16 +199,13 @@ def build_paper_beam_yarn(system, cfg: dict):
 
     area = math.pi * radius_m * radius_m
     return mesh, nodes, {
-        "tex": tex,
-        "k": k,
-        "diameter_mm": dia_mm,
-        "radius_m": radius_m,
+        "length_m": length,
+        "element_count": element_count,
+        "diameter_m": dia_m,
+        "rho": rho,
         "area_m2": area,
         "E": E,
         "nu": nu,
-        "rho": rho,
-        "length_m": length,
-        "n_elems": n_elems,
     }
 
 
@@ -243,9 +222,57 @@ def tip_stats(nodes: list) -> tuple[float, float]:
     return float(tip.GetPos().y), float(tip.GetPos_dt().y)
 
 
+def segment_centers_and_velocities(
+    nodes: list,
+) -> list[tuple[float, float, float, float, float, float]]:
+    out: list[tuple[float, float, float, float, float, float]] = []
+    for i in range(len(nodes) - 1):
+        a = nodes[i]
+        b = nodes[i + 1]
+        pa = a.GetPos()
+        pb = b.GetPos()
+        va = a.GetPos_dt()
+        vb = b.GetPos_dt()
+        out.append(
+            (
+                0.5 * float(pa.x + pb.x),
+                0.5 * float(pa.y + pb.y),
+                0.5 * float(pa.z + pb.z),
+                0.5 * float(va.x + vb.x),
+                0.5 * float(va.y + vb.y),
+                0.5 * float(va.z + vb.z),
+            )
+        )
+    return out
+
+
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Paper-based clamped yarn simulation")
+    p = argparse.ArgumentParser(description="Yarn free-fall example (clamped one end)")
     p.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH, help="JSON config path")
+    p.add_argument(
+        "--headless-duration-s",
+        type=float,
+        default=0.0,
+        help="If >0, run headless for this simulated duration and exit (no Irrlicht window).",
+    )
+    p.add_argument(
+        "--trajectory-csv",
+        type=Path,
+        default=None,
+        help="Optional CSV path for tip trajectory in headless mode.",
+    )
+    p.add_argument(
+        "--segments-csv",
+        type=Path,
+        default=None,
+        help="Optional CSV path for per-segment trajectory in headless mode.",
+    )
+    p.add_argument(
+        "--sample-interval-s",
+        type=float,
+        default=0.01,
+        help="Trajectory sampling interval in seconds for CSV outputs.",
+    )
     return p.parse_args()
 
 
@@ -260,29 +287,23 @@ def main() -> None:
     gx, gy, gz = [float(v) for v in sim_c["gravity_m_s2"]]
     system.Set_G_acc(chrono.ChVectorD(gx, gy, gz))
 
-    mesh, nodes, meta = build_paper_beam_yarn(system, cfg)
+    mesh, nodes, meta = build_clamped_yarn(system, cfg)
     add_beam_visuals(mesh, vis_c)
 
-    mu_from_tex = meta["tex"] * 1.0e-6
-    mu_from_geom = meta["rho"] * meta["area_m2"]
-    err = 100.0 * (mu_from_geom - mu_from_tex) / max(1e-16, mu_from_tex)
+    mu = meta["rho"] * meta["area_m2"]
     print("=== paper_yarn_clamped_solid.py ===")
     print(f"config={Path(args.config)}")
-    print("model=paper-parameterized beam FEM yarn (non-cable)")
+    print("model=single example, clamped one end + free-fall")
     print(f"dt={float(sim_c['dt_s'])} s  integration_substeps={int(sim_c['integration_substeps'])}")
     print(f"gravity=({gx}, {gy}, {gz}) m/s^2")
     print(
-        f"tex={meta['tex']}  k={meta['k']}  diameter={meta['diameter_mm']:.4f} mm "
-        f"(D=k*sqrt(T_tex))"
+        f"length={meta['length_m']:.3f} m  elements={meta['element_count']}  "
+        f"diameter={meta['diameter_m']*1e3:.4f} mm"
     )
     print(
-        f"E={meta['E']:.3e} Pa  nu={meta['nu']:.3f}  rho={meta['rho']:.1f} kg/m^3 "
-        "(from paper table)"
+        f"E={meta['E']:.3e} Pa  nu={meta['nu']:.3f}  rho={meta['rho']:.1f} kg/m^3  "
+        f"linear_mass={mu:.6e} kg/m"
     )
-    print(
-        f"mu_tex={mu_from_tex:.6e} kg/m  mu_geom={mu_from_geom:.6e} kg/m  error={err:+.3f}%"
-    )
-    print(f"mesh: beam_elements={meta['n_elems']} nodes={len(nodes)}")
 
     dt = float(sim_c["dt_s"])
     n_sub = int(sim_c["integration_substeps"])
@@ -293,6 +314,84 @@ def main() -> None:
             print(f"PRECHECK FAILED: NaN at step {i}")
             return
     print(f"PRECHECK OK: t={system.GetChTime():.4f}s")
+
+    if float(args.headless_duration_s) > 0.0:
+        t_end = float(system.GetChTime()) + float(args.headless_duration_s)
+        print(f"HEADLESS RUN: duration={float(args.headless_duration_s):.3f}s")
+        y_start = float(nodes[-1].GetPos().y)
+        y_min = y_start
+        t_at_min = float(system.GetChTime())
+        next_print = float(system.GetChTime())
+        sample_dt = max(1e-9, float(args.sample_interval_s))
+        next_sample = float(system.GetChTime())
+
+        csv_file = None
+        csv_writer = None
+        if args.trajectory_csv is not None:
+            cpath = Path(args.trajectory_csv)
+            cpath.parent.mkdir(parents=True, exist_ok=True)
+            csv_file = cpath.open("w", newline="", encoding="utf-8")
+            csv_writer = csv.writer(csv_file)
+            csv_writer.writerow(["t_s", "tip_y_m", "tip_vy_m_s"])
+
+        seg_file = None
+        seg_writer = None
+        if args.segments_csv is not None:
+            spath = Path(args.segments_csv)
+            spath.parent.mkdir(parents=True, exist_ok=True)
+            seg_file = spath.open("w", newline="", encoding="utf-8")
+            seg_writer = csv.writer(seg_file)
+            seg_writer.writerow(
+                ["t_s", "segment_idx", "x_m", "y_m", "z_m", "vx_m_s", "vy_m_s", "vz_m_s"]
+            )
+
+        try:
+            while float(system.GetChTime()) < t_end:
+                step_with_substeps(system, dt, n_sub)
+                if has_nan_nodes(nodes):
+                    print(f"NaN detected at t={system.GetChTime():.6f}s, stopping.")
+                    return
+                t = float(system.GetChTime())
+                y_tip, vy_tip = tip_stats(nodes)
+                if y_tip < y_min:
+                    y_min = y_tip
+                    t_at_min = t
+                if t + 1e-12 >= next_sample:
+                    if csv_writer is not None:
+                        csv_writer.writerow([f"{t:.9f}", f"{y_tip:.9f}", f"{vy_tip:.9f}"])
+                    if seg_writer is not None:
+                        segs = segment_centers_and_velocities(nodes)
+                        for i, (x, y, z, vx, vy, vz) in enumerate(segs):
+                            seg_writer.writerow(
+                                [
+                                    f"{t:.9f}",
+                                    i,
+                                    f"{x:.9f}",
+                                    f"{y:.9f}",
+                                    f"{z:.9f}",
+                                    f"{vx:.9f}",
+                                    f"{vy:.9f}",
+                                    f"{vz:.9f}",
+                                ]
+                            )
+                    next_sample += sample_dt
+                if t >= next_print:
+                    print(f"t={t:5.2f}s  free_end_y={y_tip:+.4f} m  free_end_vy={vy_tip:+.4f} m/s")
+                    next_print += float(rt_c["print_interval_s"])
+        finally:
+            if csv_file is not None:
+                csv_file.close()
+            if seg_file is not None:
+                seg_file.close()
+
+        y_end = float(nodes[-1].GetPos().y)
+        rebound = max(0.0, y_end - y_min)
+        print(
+            f"HEADLESS SUMMARY: tip_start={y_start:+.4f} m  tip_end={y_end:+.4f} m  "
+            f"end_drop={y_start - y_end:+.4f} m  max_drop={y_start - y_min:+.4f} m  "
+            f"rebound_from_min={rebound:+.4f} m  t_at_min={t_at_min:.3f}s"
+        )
+        return
 
     vis = chronoirr.ChVisualSystemIrrlicht()
     vis.AttachSystem(system)
@@ -310,7 +409,6 @@ def main() -> None:
         spc = chrono.ChColor(0.10 * b, 0.10 * b, 0.10 * b)
         dif = chrono.ChColor(0.98 * b, 0.98 * b, 0.98 * b)
         vis.AddLightDirectional(40.0, 30.0, amb, spc, dif)
-        vis.AddLightDirectional(20.0, 200.0, amb, spc, chrono.ChColor(0.55 * b, 0.55 * b, 0.55 * b))
     vis.AddCamera(
         chrono.ChVectorD(*[float(v) for v in vis_c["camera_pos_xyz_m"]]),
         chrono.ChVectorD(*[float(v) for v in vis_c["camera_target_xyz_m"]]),
